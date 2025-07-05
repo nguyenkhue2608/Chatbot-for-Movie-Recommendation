@@ -7,14 +7,123 @@ import pandas as pd
 from datetime import datetime, time
 import json
 import warnings
+import base64
+import re
+import io
+import soundfile as sf
+from scipy.io.wavfile import write
+import numpy as np
 
 # Suppress ChromaDB telemetry warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", message=".*telemetry.*")
 warnings.filterwarnings("ignore", message=".*config file.*")
 
+# Initialize TTS model (cached for performance)
+@st.cache_resource
+def load_tts_model():
+    """Load Hugging Face TTS model with multilingual support"""
+    try:
+        from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
+        import torch
+        
+        # Load the multilingual TTS model
+        processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
+        model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
+        vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+        
+        # Load speaker embeddings
+        from datasets import load_dataset
+        embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
+        speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
+        
+        return processor, model, vocoder, speaker_embeddings
+    except Exception as e:
+        st.error(f"Failed to load TTS model: {str(e)}")
+        return None, None, None, None
+
+def generate_tts_audio(text, language="en"):
+    """Generate TTS audio using Hugging Face model"""
+    try:
+        processor, model, vocoder, speaker_embeddings = load_tts_model()
+        
+        if processor is None:
+            return None
+        
+        # Clean text for TTS
+        clean_text = re.sub(r'[*_`#\[\](){}]', '', text)
+        clean_text = re.sub(r'\n+', ' ', clean_text)
+        clean_text = clean_text.strip()
+        
+        # Limit text length to avoid memory issues
+        if len(clean_text) > 500:
+            clean_text = clean_text[:500] + "..."
+        
+        # Process text
+        inputs = processor(text=clean_text, return_tensors="pt")
+        
+        # Generate speech
+        with torch.no_grad():
+            speech = model.generate_speech(inputs["input_ids"], speaker_embeddings, vocoder=vocoder)
+        
+        # Convert to numpy array and normalize
+        audio_data = speech.numpy()
+        audio_data = np.int16(audio_data * 32767)
+        
+        # Create WAV file in memory
+        buffer = io.BytesIO()
+        write(buffer, 16000, audio_data)
+        buffer.seek(0)
+        
+        return buffer.getvalue()
+        
+    except Exception as e:
+        st.error(f"TTS generation failed: {str(e)}")
+        return None
+
 # Load environment variables
 load_dotenv()
+
+def create_tts_component(text, button_id, language="en"):
+    """Create a TTS component with Hugging Face model and language selection"""
+    # Language options with Vietnamese support
+    language_options = {
+        "en": "🇺🇸 English",
+        "vi": "🇻🇳 Tiếng Việt",
+        "es": "🇪🇸 Español",
+        "fr": "🇫🇷 Français",
+        "de": "🇩🇪 Deutsch",
+        "it": "🇮🇹 Italiano",
+        "pt": "🇵🇹 Português",
+        "ru": "🇷🇺 Русский",
+        "ja": "🇯🇵 日本語",
+        "ko": "🇰🇷 한국어",
+        "zh": "🇨🇳 中文"
+    }
+    
+    # Create columns for language selector and TTS button
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        selected_language = st.selectbox(
+            "🌐 Language",
+            options=list(language_options.keys()),
+            format_func=lambda x: language_options[x],
+            index=0 if language == "en" else (1 if language == "vi" else 0),
+            key=f"lang_select_{button_id}"
+        )
+    
+    with col2:
+        if st.button("🔊 Generate Audio", key=f"tts_btn_{button_id}", help="Generate and play high-quality audio", type="primary"):
+            with st.spinner("🎵 Generating audio..."):
+                audio_data = generate_tts_audio(text, selected_language)
+                
+                if audio_data:
+                    st.success("✅ Audio generated!")
+                    # Create audio player
+                    st.audio(audio_data, format="audio/wav")
+                else:
+                    st.error("❌ Failed to generate audio")
 
 # Initialize ChromaDB
 @st.cache_resource
@@ -357,9 +466,14 @@ def main():
             st.caption(f"💬 Current conversation has {len(st.session_state.messages)} messages")
         
         # Display chat messages
-        for message in st.session_state.messages:
+        for i, message in enumerate(st.session_state.messages):
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
+                
+                # Add TTS component for assistant messages
+                if message["role"] == "assistant":
+                    with st.expander("🔊 Text-to-Speech Options", expanded=False):
+                        create_tts_component(message["content"], f"msg_{i}")
         
         # Chat input
         if prompt := st.chat_input("What kind of film are you looking for?"):
@@ -374,6 +488,11 @@ def main():
                     search_results = search_films(collection, prompt)
                     recommendation = get_ai_recommendation(azure_client, deployment_name, prompt, search_results)
                     st.markdown(recommendation)
+                    
+                    # Add TTS component for the new response
+                    current_msg_index = len(st.session_state.messages)
+                    with st.expander("🔊 Text-to-Speech Options", expanded=False):
+                        create_tts_component(recommendation, f"msg_{current_msg_index}")
             
             # Add assistant response to chat history
             st.session_state.messages.append({"role": "assistant", "content": recommendation})
