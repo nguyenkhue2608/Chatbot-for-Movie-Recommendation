@@ -1,0 +1,47 @@
+[
+  {
+    "title": "The Shawshank Redemption",
+    "genre": "Drama",
+    "director": "Frank Darabont",
+    "year": 1994,
+    "description": "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.",
+    "timeslot": "Evening (17:00-21:00)",
+    "rating": 9
+  },
+  {
+    "title": "The Godfather",
+    "genre": "Crime",
+    "director": "Francis Ford Coppola",
+    "year": 1972,
+    "description": "The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.",
+    "timeslot": "Night (21:00-24:00)",
+    "rating": 9
+  },
+  {
+    "title": "Pulp Fiction",
+    "genre": "Crime",
+    "director": "Quentin Tarantino",
+    "year": 1994,
+    "description": "The lives of two mob hitmen, a boxer, a gangster and his wife intertwine in four tales of violence and redemption.",
+    "timeslot": "Night (21:00-24:00)",
+    "rating": 8
+  },
+  {
+    "title": "Inception",
+    "genre": "Sci-Fi",
+    "director": "Christopher Nolan",
+    "year": 2010,
+    "description": "A thief who steals corporate secrets through dream-sharing technology is given the inverse task of planting an idea.",
+    "timeslot": "Evening (17:00-21:00)",
+    "rating": 8
+  },
+  {
+    "title": "The Dark Knight",
+    "genre": "Action",
+    "director": "Christopher Nolan",
+    "year": 2008,
+    "description": "When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests.",
+    "timeslot": "Evening (17:00-21:00)",
+    "rating": 9
+  }
+]

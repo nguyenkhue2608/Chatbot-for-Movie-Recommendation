@@ -1,0 +1,20 @@
+# ChromaDB Configuration
+# This file eliminates the "No config file found" warning
+
+# Telemetry settings
+telemetry:
+  enabled: false
+  anonymized: false
+
+# Database settings
+database:
+  path: "./chroma_db"
+  
+# Logging settings
+logging:
+  level: "WARNING"
+  
+# Performance settings
+performance:
+  batch_size: 1000
+  max_batch_size: 5000
